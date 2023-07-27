@@ -48,10 +48,16 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
 
     fun save() {
         edited.value?.let {
-            thread {
-                repository.save(it)
-                _postCreated.postValue(Unit)
-            }
+            repository.save(it, object:PostRepository.PostCallback<Unit>{
+                    override fun onSuccess(data: Unit) {
+                        _postCreated.postValue(Unit)
+                    }
+
+                    override fun onError(e: Exception) {
+                        _data.postValue(FeedModel(error = true))
+                    }
+
+                })
         }
         edited.value = empty
     }
@@ -118,18 +124,19 @@ class PostViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeById(id: Long) {
-        thread {
-            val old = _data.value?.posts.orEmpty()
-            _data.postValue(
-                _data.value?.copy(posts = _data.value?.posts.orEmpty()
-                    .filter { it.id != id }
-                )
-            )
-            try {
-                repository.removeById(id)
-            } catch (e: IOException) {
-                _data.postValue(_data.value?.copy(posts = old))
-            }
-        }
+        repository.removeById(id, object : PostRepository.PostCallback<Unit>{
+                override fun onSuccess(data: Unit) {
+                    val old = _data.value?.posts.orEmpty()
+                    _data.postValue(
+                        _data.value?.copy(posts = _data.value?.posts.orEmpty()
+                            .filter { it.id != id }
+                        )
+                    )
+                }
+
+                override fun onError(e: Exception) {
+                    _data.postValue(FeedModel(error = true))
+                }
+            })
     }
 }
